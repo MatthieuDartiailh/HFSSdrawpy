@@ -1242,15 +1242,15 @@ class HfssModeler(COMWrapper):
             else:
                 return str(name)
         return self.parent.eval_var_str(name, unit=unit)
-    
+
     def delete_all_objects(self):
         objects = []
         for ii in range(int(self._modeler.GetNumObjects())):
             objects.append(self._modeler.GetObjectName(str(ii)))
 #        print(objects)
         self._modeler.Delete(self._selections_array(*objects))
-        
-        
+
+
 class ModelEntity(str, HfssPropertyObject):
     prop_tab = "Geometry3DCmdTab"
     model_command = None
@@ -1676,4 +1676,3 @@ def load_HFSS_project(proj_name, project_path, extension = '.aedt'):  # aedt is 
         project = desktop.get_active_project()
     print("\tOpened link to HFSS user project.")
     return app, desktop, project
-

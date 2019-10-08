@@ -332,9 +332,10 @@ class Circuit(object):
         iObjectBlanc (string) : HFSS object name e.g. 'ground_plane'
         iObjectTools (list) : HFSS object name e.g. ['readout_box', 'res_gap']
 
-        '''
+        '''+
         iObjBlank = self.modeler.subtract(iObjBlank, iObjTools, keep_originals=False)
         return iObjBlank
+
 
 
     # main function
@@ -626,11 +627,12 @@ class KeyElt(Circuit):
         self.ports[self.name] = portOut
 
 
-    def draw_JJ(self, iTrack, iGap, iTrackJ, iLength, iInduct='1nH', fillet=None):
+    def draw_JJ(self, iTrack, iGap, iTrackJ, iLength, iInduct='1nH',iResistance=0, iCapacitance=0, fillet=None, iGapJ=None):
         '''
         Draws a Joseph's Son Junction.
 
         Draws a rectangle, here called "junction",
+        iGapJ
         with Bondary condition :lumped RLC, C=R=0, L=iInduct in nH
         Draws needed adaptors on each side
 
@@ -649,6 +651,8 @@ class KeyElt(Circuit):
         --------
 
         '''
+        if iGapJ:
+            iGapJ = parse_entry(iGapJ)
         iTrack, iGap, iTrackJ, iLength = parse_entry((iTrack, iGap, iTrackJ, iLength))
 
         portOut1 = [self.coor([iLength/2,0]), self.coor_vec([1,0]), iTrack, iGap]
@@ -657,7 +661,7 @@ class KeyElt(Circuit):
         self.ports[self.name+'_2'] = portOut2
 
         junction = self.connect_elt(self.name, self.name+'_1', self.name+'_2')
-        pads = junction._connect_JJ(iTrackJ, iInduct=iInduct, fillet=None)
+        pads = junction._connect_JJ(iTrackJ, iInduct=iInduct, iResistance=iResistance, iCapacitance=iCapacitance, fillet=None, iGapJ = iGapJ)
         self.trackObjects.append(pads)
 
         self.gapObjects.append(self.draw_rect_center(self.name+"_cutout", self.coor([0,0]), self.coor_vec([iLength, iTrack+2*iGap])))
@@ -1287,6 +1291,15 @@ class KeyElt(Circuit):
 
     def draw_capa_interdigitated(self, iTrack, iGap, teeth_size,gap_size, N_period, fillet):
         '''
+                Inputs:
+        -------
+        iTrack:
+        iGap:
+        teeth_size: (List) [tooth length, tooth width]
+        gap_size:
+        N_period:
+        fillet:
+
         '''
         iTrack, iGap = parse_entry((iTrack, iGap))
         fillet = parse_entry(fillet)
@@ -1313,13 +1326,12 @@ class KeyElt(Circuit):
 
 
         connection.fillets(fillet)
-        raw_points=[(-gap_size-teeth_size[0]+self.overdev,N_teeth*teeth_size[1]+self.overdev),(gap_size-teeth_size[0]-self.overdev,N_teeth*teeth_size[1]+self.overdev)]
+        raw_points=[(-gap_size-teeth_size[0]+self.overdev,N_teeth*teeth_size[1]+self.overdev),
+        (gap_size-teeth_size[0]-self.overdev,N_teeth*teeth_size[1]+self.overdev)]
         points=self.append_absolute_points(raw_points)
         capagap_starter = self.draw(self.name+'_width', points, closed=False)
 
         capagap = connection.sweep_along_path(capagap_starter)
-
-
 
         raw_points = [(-teeth_size[0]-iTrack-self.overdev, -N_teeth*teeth_size[1]-self.overdev),
                       (-teeth_size[0]-iTrack-self.overdev,-iTrack/2-self.overdev),
@@ -1336,33 +1348,32 @@ class KeyElt(Circuit):
         points = self.append_absolute_points(raw_points)
         pads = self.draw(self.name+"_pads", points)
         #####Filets on edges of the capa
-        pads.fillet(fillet+self.overdev,11)
-        pads.fillet(fillet+self.overdev,6)
-        pads.fillet(fillet+self.overdev,5)
-        pads.fillet(fillet+self.overdev,0)
+        ## Got an error when shrunk the track size
+        ##something is wrong here too.
+        # pads.fillet(fillet+self.overdev,11)
+        # pads.fillet(fillet+self.overdev,6)
+        # pads.fillet(fillet+self.overdev,5)
+        # pads.fillet(fillet+self.overdev,0)
 
         pads_sub = self.subtract(pads, [capagap])
         #print(pads_sub.vertices())
 
-        #####Filets on edge
-        pads.fillet(fillet-self.overdev,73)
-        pads.fillet(fillet-self.overdev,70)
+        # XXX Need to be fixed !!!
+        # ####Filets on edge
+        # pads.fillet(fillet-self.overdev,73)
+        # pads.fillet(fillet-self.overdev,70)
 
-        #####Filets on last teeth
-        pads.fillet(0.5*fillet+self.overdev,67)
-        pads.fillet(0.5*fillet+self.overdev,38)
-        pads.fillet(0.5*fillet+self.overdev,10)
+        # #####Filets on last teeth
+        # pads.fillet(0.5*fillet+self.overdev,67)
+        # pads.fillet(0.5*fillet+self.overdev,38)
+        # pads.fillet(0.5*fillet+self.overdev,10)
 
-        #####Filets on edge
-        pads.fillet(fillet-self.overdev,7)
-        pads.fillet(fillet-self.overdev,4)
+        # #####Filets on edge
+        # pads.fillet(fillet-self.overdev,7)
+        # pads.fillet(fillet-self.overdev,4)
 
-        #####Filets on last teeth
-        pads.fillet(0.5*fillet+self.overdev,1)
-
-
-
-
+        # #####Filets on last teeth
+        # pads.fillet(0.5*fillet+self.overdev,1)
 
         if not self.is_overdev:
             self.gapObjects.append(self.draw_rect_center(self.name+"_gap", self.coor([0,0]), self.coor_vec([2*teeth_size[0]+2*iTrack+2*iGap, 2*N_teeth*teeth_size[1]+2*iGap])))
@@ -1396,6 +1407,145 @@ class KeyElt(Circuit):
         self.ports[self.name+'_1'] = portOut1
         self.ports[self.name+'_2'] = portOut2
 #
+
+    def draw_NYU_inline_interdigit_capa(self, iTrack, iGap, teeth_size, gap_size, fillet, N_teeth=3):
+        '''
+        Method used for drawing the capacitor coupling the storage
+        capacitor to the coupling capacitor in the tunable design
+
+
+        !!! Need to convert the teeth_size to a float rather than listr
+        as we only put in the finger length and no longer the width
+
+
+        Inputs:
+        -------
+        iTrack:
+        iGap:
+        teeth_size: (List) [tooth length, tooth width]
+        gap_size:
+        N_period:
+        fillet:
+
+        Outputs:
+        --------
+
+        !! Not sure about the dimension definitions yet..
+            +--------------+
+            |              |
+            |      +-------+
+            |      |
+            |      +-------+
+            |              |
+            +--------------+
+
+        '''
+        iTrack, iGap = parse_entry((iTrack, iGap))
+        fillet = parse_entry(fillet)
+        teeth_size=parse_entry(teeth_size)
+        gap_size=parse_entry(gap_size)
+        teeth_size = Vector(teeth_size)
+
+        #Generate the ports for the interdigitated capacitor
+        portOut1 = [self.pos+self.ori*(teeth_size[0]+2*iTrack+gap_size)/2, self.ori, iTrack+2*self.overdev, iGap-2*self.overdev]
+        portOut2 = [self.pos-self.ori*(teeth_size[0]+2*iTrack+gap_size)/2, -self.ori, iTrack+2*self.overdev, iGap-2*self.overdev]
+
+
+        # Generate a track for the capacitor gap for sweeping along it
+        # N_teeth=2*N_period+1
+        tooth_width = iTrack / N_teeth
+
+
+        raw_points = [(teeth_size[0]/2, iTrack/2-self.overdev),
+                      (0, -tooth_width),
+                      (-teeth_size[0], 0),
+                      (0, -tooth_width),
+                      (teeth_size[0], 0),
+                      (0, -tooth_width)]
+
+        points = self.append_points(raw_points)
+        # right_pad = self.draw(self.name+"_pad1", points)
+        connection = self.draw(self.name+"_capagap", points, closed=False)
+        connection.fillets(fillet)
+
+        # Generate the gap with points to sweep a line along the gap track
+        # drawn above as "_capgap"
+        raw_points=[(-gap_size/2+teeth_size[0]/2,iTrack/2),
+                    (gap_size/2+teeth_size[0]/2,iTrack/2)]
+        points=self.append_absolute_points(raw_points)
+        capagap_starter = self.draw(self.name+'_width', points, closed=False)
+
+        capagap = connection.sweep_along_path(capagap_starter)
+
+        points = self.append_absolute_points([(-0.5*(2*iTrack+gap_size+teeth_size[0]), -0.5*iTrack),
+                                              (-0.5*(2*iTrack+gap_size+teeth_size[0]), 0.5*iTrack),
+                                              (0.5*(2*iTrack+gap_size+teeth_size[0]), 0.5*iTrack),
+                                              (0.5*(2*iTrack+gap_size+teeth_size[0]), -0.5*iTrack)])
+        pads = self.draw(self.name+"_pads", points)
+
+
+        #####Filets on edges of the capa
+        ## Got an error when shrunk the track size
+        ##something is wrong here too.
+        # pads.fillet(fillet+self.overdev,11)
+        # pads.fillet(fillet+self.overdev,6)
+        # pads.fillet(fillet+self.overdev,5)
+        # pads.fillet(fillet+self.overdev,0)
+
+        pads_sub = self.subtract(pads, [capagap])
+        #print(pads_sub.vertices())
+
+        # XXX Need to be fixed !!!
+        # ####Filets on edge
+        # pads.fillet(fillet-self.overdev,73)
+        # pads.fillet(fillet-self.overdev,70)
+
+        # #####Filets on last teeth
+        # pads.fillet(0.5*fillet+self.overdev,67)
+        # pads.fillet(0.5*fillet+self.overdev,38)
+        # pads.fillet(0.5*fillet+self.overdev,10)
+
+        # #####Filets on edge
+        # pads.fillet(fillet-self.overdev,7)
+        # pads.fillet(fillet-self.overdev,4)
+
+        # #####Filets on last teeth
+        # pads.fillet(0.5*fillet+self.overdev,1)
+
+        if not self.is_overdev:
+            self.gapObjects.append(self.draw_rect_center(self.name+"_gap",
+                                   self.coor([0,0]),
+                                   self.coor_vec([teeth_size[0]+2*iTrack+gap_size,
+                                                  iTrack+2*iGap])))
+        else:
+            raw_points = [(-teeth_size[0]-iTrack-iGap, iTrack/2+iGap-self.overdev),
+                          (-teeth_size[0]-iTrack-iGap+self.overdev, iTrack/2+iGap-self.overdev),
+                          (-teeth_size[0]-iTrack-iGap+self.overdev, N_teeth*teeth_size[1]+iGap-self.overdev),
+                          (teeth_size[0]+iTrack+iGap-self.overdev, N_teeth*teeth_size[1]+iGap-self.overdev),
+                          (teeth_size[0]+iTrack+iGap-self.overdev, iTrack/2+iGap-self.overdev),
+                          (teeth_size[0]+iTrack+iGap, iTrack/2+iGap-self.overdev),
+                          (teeth_size[0]+iTrack+iGap, -iTrack/2-iGap+self.overdev),
+                          (teeth_size[0]+iTrack+iGap-self.overdev, -iTrack/2-iGap+self.overdev),
+                          (teeth_size[0]+iTrack+iGap-self.overdev, -N_teeth*teeth_size[1]-iGap+self.overdev),
+                          (-teeth_size[0]-iTrack-iGap+self.overdev, -N_teeth*teeth_size[1]-iGap+self.overdev),
+                          (-teeth_size[0]-iTrack-iGap+self.overdev, -iTrack/2-iGap+self.overdev),
+                          (-teeth_size[0]-iTrack-iGap, -iTrack/2-iGap+self.overdev)]
+            points = self.append_absolute_points(raw_points)
+            self.gapObjects.append(self.draw(self.name+"_gap", points))
+        if self.is_mask:
+            self.maskObjects.append(self.draw_rect_center(self.name+"_mask", self.coor([0,0]), self.coor_vec([2*teeth_size[0]+2*iTrack+4*iGap, 2*N_teeth*teeth_size[1]+4*iGap])))
+
+
+        if not self.is_litho:
+            self.draw(self.name+"_mesh", points)
+            self.modeler.assign_mesh_length(self.name+"_mesh",gap_size/2)
+
+        self.trackObjects.append(pads_sub)
+
+        self.ports[self.name+'_1'] = portOut1
+        self.ports[self.name+'_2'] = portOut2
+
+
 
     def draw_squid(self, iTrack, iGap, squid_size, iTrackPump, iGapPump, iTrackSquid=None, iTrackJ=None, Lj_down='1nH', Lj_up=None,  typePump='down', doublePump=False, iSlope=1, iSlopePump=0.5, fillet=None): #for now assume left and right tracks are the same width
         '''
@@ -3129,7 +3279,9 @@ class ConnectElt(KeyElt, Circuit):
         return self.draw(self.name+'_width'+width, points, closed=False)
 
 
-    def draw_cable(self, fillet="0.3mm", is_bond=True, is_meander=False, to_meanders = [1,0,1,0,1,0,1,0,1,0], meander_length=0, meander_offset=0, is_mesh=False, constrains=[], reverse_adaptor=False):
+    def draw_cable(self, fillet="0.3mm", is_bond=True, is_meander=False,
+                   to_meanders=[0], meander_length=0, meander_offset=0,
+                   is_mesh=False, constrains=[], reverse_adaptor=False):
         '''
         Draws a CPW transmission line between iIn and iOut
 
@@ -3256,8 +3408,9 @@ class ConnectElt(KeyElt, Circuit):
         if is_mesh is True:
             if not self.is_litho:
                 self.modeler.assign_mesh_length(track,2*self.inTrack)
-
+        # returning the cable length in mm
         print('{0}_length = {1:.3f} mm'.format(self.name, cable_length*1000))
+        return cable_length*1000
 
     def draw_slanted_cable(self, fillet=None, is_bond=True, is_mesh=False, constrains=[], reverse_adaptor=False):
         '''
@@ -3450,12 +3603,16 @@ class ConnectElt(KeyElt, Circuit):
 
         return self.iIn+'_bis', adaptDist, track, gap, mask
 
-    def _connect_JJ(self, iTrackJ, iInduct='1nH', fillet=None):
+    def _connect_JJ(self, iTrackJ, iInduct='1nH', iResistance=0, iCapacitance=0, fillet=None, iGapJ=None):
         '''
-        Draws a Joseph's Son Junction.
+        Draws a Josephson Junction.
 
-        Draws a rectangle, here called "junction",
-        with Bondary condition :lumped RLC, C=R=0, L=iInduct in nH
+        Draws a rectangle, here called "junction", with the width iTrack and
+        gap size of iGapJ
+        with Bondary condition :lumped RLC
+        R=iResistance in Ohm,
+        C=iCapacitance in nF,
+        L=iInduct in nH
         Draws needed adaptors on each side
 
         Inputs:
@@ -3473,11 +3630,19 @@ class ConnectElt(KeyElt, Circuit):
         --------
 
         '''
+        iGapJ = iGapJ or iTrackJ
         iLength = (self.posOut-self.pos).norm()
 
         if 0:
             induc_H = self.val(iInduct)*1e-9
             print('induc'+str(induc_H))
+
+            # resist_OH = self.val(iResistance)
+            # print('resistance'+str(resist_OH))
+
+            # capa_F = self.val(iCapacitance)*1e-9
+            # print('capacitance'+str(capa_F))
+
             w_plasma = 2*np.pi*24*1e9
             capa_fF = 1/(induc_H*w_plasma**2)*10**15
             capa_plasma = self.set_variable(self.name+'_capa_plasma', str(capa_fF)+'fF')
@@ -3497,12 +3662,12 @@ class ConnectElt(KeyElt, Circuit):
             raise ValueError('Increase iTrackJ %s' % self.name)
 
 
-        raw_points = [(iTrackJ/2, iTrackJ/2),
-                      ((iLength/2-iTrackJ/2-adaptDist), 0),
+        raw_points = [(iGapJ/2, iTrackJ/2),
+                      ((iLength/2-iGapJ/2-adaptDist), 0),
                       (adaptDist, (iTrack-iTrackJ)/2),
                       (0, -iTrack),
                       (-adaptDist, (iTrack-iTrackJ)/2),
-                      (-(iLength/2-iTrackJ/2-adaptDist), 0)]
+                      (-(iLength/2-iGapJ/2-adaptDist), 0)]
         points = self.append_points(raw_points)
         right_pad = self.draw(self.name+"_pad1", points)
 
@@ -3514,12 +3679,15 @@ class ConnectElt(KeyElt, Circuit):
         if not self.is_litho:
             mesh = self.draw_rect_center(self.name+'_mesh', self.coor([0,0]), self.coor_vec([iLength, iTrack]))
             self.modeler.assign_mesh_length(mesh, iTrackJ/4)
+            if iGapJ != iTrackJ:
+                mesh = self.draw_rect_center(self.name+'_mesh_fine', self.coor([0,0]), self.coor_vec([10*iGapJ, iTrack]))
+                self.modeler.assign_mesh_length(mesh, iGapJ/4)
 
-            points = self.append_points([(iTrackJ/2,0),(-iTrackJ,0)])
+            points = self.append_points([(-iGapJ/2,0),(iGapJ,0)])
             self.draw(self.name+'_line', points, closed=False)
 
-            JJ = self.draw_rect_center(self.name, self.coor([0,0]), self.coor_vec([iTrackJ, iTrackJ]))
-            self.assign_lumped_RLC(JJ, self.ori, (0, iInduct, capa_plasma))
+            JJ = self.draw_rect_center(self.name, self.coor([0,0]), self.coor_vec([iGapJ, iTrackJ]))
+            self.assign_lumped_RLC(JJ, self.ori, (iResistance, iInduct, iCapacitance))
 
         return pads
 
